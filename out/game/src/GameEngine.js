@@ -46,6 +46,7 @@ export class GameEngine {
     this.shiftReport = null;
     this.lastServe = '';
     this.muted = false;
+    this.feverFlash = 0;   // 1 on the step FEVER RUSH ignites, decaying to 0; brightens the frame
   }
 
   safeStorage() {
@@ -67,6 +68,7 @@ export class GameEngine {
     this.activeStation = -1;
     this.shiftReport = null;
     this.screen = SCREEN_TITLE;
+    this.feverFlash = 0;
     this.announce('Aether Express. Press Space or click to board.');
   }
 
@@ -190,7 +192,17 @@ export class GameEngine {
     this.stations.update(STEP, cooking, this.activeStation);
     this.wasCooking = cooking;
     this.cooking = cooking;
-    if (this.progression.tickFever(STEP)) { this.sound.fever(); this.fx.popup('FEVER RUSH!', FIELD.width / 2, 240, '#ff8a2a', 1.4); }
+    if (this.progression.tickFever(STEP)) {
+      this.sound.whoosh();
+      this.sound.fever();
+      this.fx.popup('FEVER RUSH!', FIELD.width / 2, 240, '#ff8a2a', 1.5);
+      this.fx.shake(7);
+      this.feverFlash = 1;
+    }
+    this.fx.speedScale = this.progression.feverActive ? 1.6 : 1;
+    if (this.feverFlash > 0) this.feverFlash = Math.max(0, this.feverFlash - STEP * 1.4);
+    // Aether motes drift off the passing landscape.
+    if (this.random.float() < 0.05) this.fx.aether(this.customers.seatX[this.random.int(4)] + (this.random.float() - 0.5) * 200, 210);
     this.fx.update(STEP);
   }
 
@@ -206,6 +218,7 @@ export class GameEngine {
       if (result !== false) {
         this.customers.serve(p, result.quality);
         this.lastServe = p.recipe.name;
+        this.fx.shake(this.progression.feverActive ? 5 : 3);
       }
       return;
     }

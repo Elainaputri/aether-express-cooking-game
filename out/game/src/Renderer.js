@@ -56,6 +56,14 @@ function glow(ctx, x, y, r0, r1, color) {
   ctx.fill();
 }
 
+/** The explicit "now -> next level" line the shop shows on each upgrade card. */
+function upgradeDelta(id, level) {
+  if (id === 'heat') return `Golden window  +${level * 2}%  →  +${(level + 1) * 2}%`;
+  if (id === 'patience') return `Guest patience  ${(1 + level * 0.2).toFixed(1)}x  →  ${(1 + (level + 1) * 0.2).toFixed(1)}x`;
+  if (id === 'tip') return `Perfect-dish tips  ${(1 + level * 0.18).toFixed(2)}x  →  ${(1 + (level + 1) * 0.18).toFixed(2)}x`;
+  return `Fever fill rate  ${(1 + level * 0.25).toFixed(2)}x  →  ${(1 + (level + 1) * 0.25).toFixed(2)}x`;
+}
+
 export class Renderer {
   /** @param {HTMLCanvasElement} canvas @param {boolean} fixed  paint at exactly 1280x720 (for shots) */
   constructor(canvas, fixed = false) {
@@ -112,6 +120,8 @@ export class Renderer {
     ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
     ctx.setTransform(this.view.scale, 0, 0, this.view.scale, this.view.x, this.view.y);
     ctx.save();
+    // The car rides its rails: a soft rhythmic rumble under everything, sharpened by real shake.
+    ctx.translate(Math.sin(engine.time * 2.3) * 0.7 + Math.sin(engine.time * 7.1) * 0.25, Math.sin(engine.time * 3.7) * 0.6);
     if (engine.fx.screenShake > 0.1) {
       const s = engine.fx.screenShake;
       ctx.translate(Math.sin(engine.time * 57) * s, Math.cos(engine.time * 43) * s);
@@ -130,9 +140,35 @@ export class Renderer {
 
     if (engine.screen === SCREEN_TITLE) this.drawTitle(engine);
     else if (engine.screen === SCREEN_SHOP) this.drawShop(engine);
-    else this.drawHud(engine);
+    else { this.drawHud(engine); this.drawFeverFrame(engine); }
 
     ctx.restore();
+  }
+
+  /** The golden/aether frame that pulses while FEVER RUSH burns, brightest as it ignites. */
+  drawFeverFrame(engine) {
+    const p = engine.progression;
+    if (!p.feverActive && engine.feverFlash <= 0) return;
+    const ctx = this.ctx;
+    const pulse = 0.5 + 0.5 * Math.sin(engine.time * 7);
+    const hot = p.feverActive ? 0.22 + 0.18 * pulse : 0;
+    const flash = engine.feverFlash * 0.4;
+    const a = Math.max(hot, flash);
+    if (a <= 0) return;
+    const g = ctx.createLinearGradient(0, 0, 0, H);
+    g.addColorStop(0, `rgba(255,138,42,${a})`);
+    g.addColorStop(0.5, `rgba(255,207,74,${a * 0.25})`);
+    g.addColorStop(1, `rgba(120,190,255,${a * 0.7})`);
+    ctx.fillStyle = g;
+    ctx.fillRect(0, 0, W, 4 + 6 * (hot + flash));
+    ctx.fillRect(0, H - 4 - 6 * (hot + flash), W, 4 + 6 * (hot + flash));
+    ctx.fillRect(0, 0, 4 + 6 * (hot + flash), H);
+    ctx.fillRect(W - 4 - 6 * (hot + flash), 0, 4 + 6 * (hot + flash), H);
+    // A bloom at the corners as it ignites.
+    if (flash > 0.01) {
+      glow(ctx, 0, 0, 10, 260, `rgba(255,180,80,${flash * 0.5})`);
+      glow(ctx, W, H, 10, 260, `rgba(140,200,255,${flash * 0.4})`);
+    }
   }
 
   // ---------------------------------------------------------------- shell
@@ -220,6 +256,23 @@ export class Renderer {
     this.ridge(drift * 0.15, 236, 16, 26, PALETTE.mountainFar, 0.4);
     this.ridge(drift * 0.32, 262, 12, 20, PALETTE.mountainMid, 2.1);
     this.ridge(drift * 0.55, 292, 9, 14, PALETTE.mountainNear, 4.3);
+    // Aether light pillars: cool shafts that sweep past the window on their own faster rhythm.
+    for (let i = 0; i < 5; i += 1) {
+      const px = ((i * 340 - drift * 1.4) % (W + 400) + W + 400) % (W + 400) - 200;
+      const pillar = ctx.createLinearGradient(px - 26, 0, px + 26, 0);
+      pillar.addColorStop(0, 'rgba(120,190,255,0)');
+      pillar.addColorStop(0.5, 'rgba(150,205,255,0.20)');
+      pillar.addColorStop(1, 'rgba(120,190,255,0)');
+      ctx.fillStyle = pillar;
+      ctx.fillRect(px - 26, WINDOW_TOP, 52, WINDOW_BOTTOM - WINDOW_TOP);
+    }
+    // A rail glint low in the glass, flashing on the ties.
+    const railY = WINDOW_BOTTOM - 12;
+    for (let i = 0; i < 14; i += 1) {
+      const rx = ((i * 96 - drift * 1.9) % (W + 120) + W + 120) % (W + 120) - 60;
+      ctx.fillStyle = 'rgba(255,236,190,0.5)';
+      ctx.fillRect(rx, railY, 40, 3);
+    }
     ctx.restore();
     // Window frames.
     ctx.fillStyle = PALETTE.brassDark;
@@ -507,13 +560,28 @@ export class Renderer {
         ctx.arc(cxx + 16 + i * 16, cyy + 58, 6, 0, Math.PI * 2);
         ctx.fill();
       }
-      // Patience bar.
-      ctx.fillStyle = 'rgba(0,0,0,0.15)';
-      roundRect(ctx, cxx + 12, cyy + h - 12, w - 24, 6, 3);
+      // Urgency timer bar: green when calm, gold mid-wait, red and flashing as the guest is about to go.
+      const barW = w - 24;
+      const barX = cxx + 12;
+      const barY = cyy + h - 13;
+      ctx.fillStyle = 'rgba(0,0,0,0.16)';
+      roundRect(ctx, barX, barY, barW, 7, 3.5);
       ctx.fill();
-      ctx.fillStyle = p.patience > 0.5 ? '#7ad46a' : p.patience > 0.22 ? '#ffcf4a' : PALETTE.danger;
-      roundRect(ctx, cxx + 12, cyy + h - 12, (w - 24) * Math.max(0, p.patience), 6, 3);
+      const t = Math.max(0, Math.min(1, p.patience));
+      let cr; let cg; let cb;
+      if (t > 0.5) { const k = (t - 0.5) * 2; cr = 255 + (122 - 255) * k; cg = 207 + (212 - 207) * k; cb = 74 + (106 - 74) * k; }
+      else { const k = t * 2; cr = 226 + (255 - 226) * k; cg = 86 + (207 - 86) * k; cb = 74; }
+      const urgent = t <= 0.25;
+      ctx.fillStyle = urgent && Math.sin(engine.time * 15) > 0 ? PALETTE.danger : `rgb(${cr | 0},${cg | 0},${cb | 0})`;
+      roundRect(ctx, barX, barY, barW * t, 7, 3.5);
       ctx.fill();
+      if (urgent) {
+        ctx.strokeStyle = `rgba(226,86,74,${0.45 + 0.45 * Math.sin(engine.time * 15)})`;
+        ctx.lineWidth = 3;
+        roundRect(ctx, cxx, cyy, w, h, 8);
+        ctx.stroke();
+        ctx.lineWidth = 1;
+      }
     } else if (p.state === 'served' || p.state === 'leaving') {
       this.text(p.state === 'leaving' ? 'ORDER LOST' : 'THANK YOU!', cxx + w / 2, cyy + 26, 15, p.state === 'leaving' ? PALETTE.danger : '#3a8a4a', 'center', FONT_UI);
       this.text(p.reaction, cxx + w / 2, cyy + 50, 13, PALETTE.ink, 'center', FONT_UI);
@@ -701,6 +769,23 @@ export class Renderer {
       if (p.kind === 'steam') { ctx.globalAlpha = k * 0.5; ctx.fillStyle = p.tint; ctx.beginPath(); ctx.arc(p.x, p.y, p.size * (1.4 - k), 0, Math.PI * 2); ctx.fill(); }
       else if (p.kind === 'smoke') { ctx.globalAlpha = k * 0.55; ctx.fillStyle = p.tint; ctx.beginPath(); ctx.arc(p.x, p.y, p.size * (1.6 - k * 0.6), 0, Math.PI * 2); ctx.fill(); }
       else if (p.kind === 'spark') { ctx.globalAlpha = k; ctx.fillStyle = p.tint; ctx.beginPath(); ctx.arc(p.x, p.y, p.size * k, 0, Math.PI * 2); ctx.fill(); }
+      else if (p.kind === 'glint') {
+        const tw = k < 0.5 ? k * 2 : (1 - k) * 2;
+        ctx.globalAlpha = Math.max(0, tw);
+        ctx.fillStyle = p.tint;
+        const r = p.size * (0.5 + 0.5 * tw);
+        ctx.beginPath();
+        ctx.moveTo(p.x, p.y - r);
+        ctx.lineTo(p.x + r * 0.22, p.y - r * 0.22);
+        ctx.lineTo(p.x + r, p.y);
+        ctx.lineTo(p.x + r * 0.22, p.y + r * 0.22);
+        ctx.lineTo(p.x, p.y + r);
+        ctx.lineTo(p.x - r * 0.22, p.y + r * 0.22);
+        ctx.lineTo(p.x - r, p.y);
+        ctx.lineTo(p.x - r * 0.22, p.y - r * 0.22);
+        ctx.closePath();
+        ctx.fill();
+      }
       else if (p.kind === 'slice') { ctx.globalAlpha = 1; ctx.save(); ctx.translate(p.x, p.y); ctx.rotate(p.angle); ctx.fillStyle = p.tint; ctx.fillRect(-p.size / 2, -p.size / 4, p.size, p.size / 2); ctx.restore(); }
       else if (p.kind === 'fleck') { ctx.globalAlpha = k; ctx.fillStyle = p.tint; ctx.fillRect(p.x, p.y, p.size, p.size); }
       else if (p.kind === 'coin') {
@@ -861,21 +946,38 @@ export class Renderer {
       const rowY = 300 + i * 74;
       const affordable = p.canBuy(up.id);
       const maxed = p.levels[up.id] >= up.max;
+      // Affordable cards sit brighter and carry a BUY pill; the rest are dimmed so the choice reads at a glance.
+      ctx.save();
+      if (affordable) { ctx.shadowColor = 'rgba(255,207,74,0.5)'; ctx.shadowBlur = 14; }
       this.hudPlaque(300, rowY, 680, 62);
+      ctx.restore();
+      if (!affordable && !maxed) {
+        ctx.fillStyle = 'rgba(8,5,2,0.42)';
+        roundRect(ctx, 300, rowY, 680, 62, 10);
+        ctx.fill();
+      }
       ctx.fillStyle = maxed ? PALETTE.brassDark : affordable ? PALETTE.brass : '#5a4a2a';
       roundRect(ctx, 306, rowY + 4, 8, 54, 4);
       ctx.fill();
-      this.text(up.name, 330, rowY + 26, 20, PALETTE.text, 'left', FONT_UI);
-      this.text(up.desc, 330, rowY + 46, 14, PALETTE.textDim, 'left', FONT_UI);
+      this.text(up.name, 330, rowY + 26, 20, maxed ? PALETTE.brassLight : affordable ? PALETTE.text : PALETTE.textDim, 'left', FONT_UI);
+      this.text(maxed ? `${up.desc} — fully upgraded` : upgradeDelta(up.id, p.levels[up.id]), 330, rowY + 47, 14,
+        maxed ? PALETTE.brassLight : affordable ? PALETTE.gold : PALETTE.textDim, 'left', FONT_UI);
       // Level pips.
       for (let l = 0; l < up.max; l += 1) {
         ctx.fillStyle = l < p.levels[up.id] ? PALETTE.gold : 'rgba(255,255,255,0.16)';
         ctx.beginPath();
-        ctx.arc(690 + l * 20, rowY + 31, 7, 0, Math.PI * 2);
+        ctx.arc(690 + l * 20, rowY + 25, 7, 0, Math.PI * 2);
         ctx.fill();
       }
       const cost = p.costOf(up.id);
-      this.text(maxed ? 'MAX' : `${cost}`, 966, rowY + 38, 22, maxed ? PALETTE.brassLight : affordable ? PALETTE.gold : PALETTE.danger, 'right', FONT_UI);
+      this.text(maxed ? 'MAX' : `${cost}`, 942, rowY + 30, 22, maxed ? PALETTE.brassLight : affordable ? PALETTE.gold : PALETTE.danger, 'right', FONT_UI);
+      if (!maxed) {
+        ctx.fillStyle = affordable ? PALETTE.brass : 'rgba(122,92,30,0.35)';
+        roundRect(ctx, 954, rowY + 15, 20, 32, 5);
+        ctx.fill();
+        this.text(affordable ? '›' : '—', 964, rowY + 37, 16, affordable ? '#2a1a0e' : PALETTE.textDim, 'center', FONT_UI);
+      }
+      if (maxed) this.text('MAX LEVEL', 964, rowY + 47, 10, PALETTE.brassLight, 'center', FONT_UI);
     }
     const bx = W / 2 - 130;
     const by = 596;

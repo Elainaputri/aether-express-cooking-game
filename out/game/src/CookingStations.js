@@ -99,6 +99,7 @@ export class CookingStations {
     const plateY = 430;
     this.fx.slice(station.panX, station.panY, plateX, plateY, step.tint);
     this.fx.flecks(station.panX, station.panY - 20, step.tint, 6);
+    this.fx.steam(station.panX, station.panY - 30, 5, 1.2);
     const factor = grade === 'perfect' ? 1 : grade === 'good' ? 0.62 : 0.28;
     this.order.quality *= factor;
     this.order.stepIndex += 1;
@@ -112,8 +113,9 @@ export class CookingStations {
     if (this.order.stepIndex >= this.order.recipe.steps.length) {
       this.order.done = true;
       if (this.plate !== null) this.plate.ready = true;
-      this.sound.fever();
-      this.fx.popup('DISH READY — SERVE IT', FIELD.width / 2, 300, '#ffcf4a', 1.1);
+      this.sound.ding();
+      this.fx.glint(plateX, plateY - 12, 16);
+      this.fx.popup('DISH READY — SERVE IT', FIELD.width / 2, 300, '#ffcf4a', 1.15);
     }
   }
 

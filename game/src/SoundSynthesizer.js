@@ -92,6 +92,10 @@ export class SoundSynthesizer {
   burn() { this.tone(180, 0.5, 'sawtooth', 0.18, 0, 60); this.noise(0.4, 0.2, 500, 0.7, 200); }
   coin() { this.tone(hz(96), 0.1, 'square', 0.16); this.tone(hz(100), 0.18, 'triangle', 0.14); }
   bell() { this.tone(hz(84), 1.1, 'sine', 0.2); this.tone(hz(88), 0.9, 'sine', 0.12, 4); this.tone(hz(91), 0.7, 'sine', 0.08, -4); }
+  /** A bright two-note chime: the dish is plated and ready on the pass. */
+  ding() { this.tone(hz(96), 0.6, 'sine', 0.26); this.tone(hz(103), 0.8, 'sine', 0.18, 0); this.tone(hz(108), 0.5, 'triangle', 0.1, 5); }
+  /** A rising aether whoosh as FEVER RUSH ignites. */
+  whoosh() { this.noise(0.5, 0.22, 300, 0.8, 3200); this.tone(hz(60), 0.6, 'sawtooth', 0.12, 0, hz(84)); }
   buzzer() { this.tone(150, 0.4, 'sawtooth', 0.2, 0, 120); this.tone(140, 0.4, 'square', 0.12); }
   fever() { this.tone(hz(72), 0.7, 'sawtooth', 0.16); this.tone(hz(79), 0.7, 'square', 0.12); this.tone(hz(84), 0.9, 'triangle', 0.14); }
   select() { this.tone(hz(81), 0.07, 'square', 0.1); }

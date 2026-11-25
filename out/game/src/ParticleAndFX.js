@@ -37,12 +37,14 @@ export class ParticleAndFX {
     this.popups = [];
     for (let i = 0; i < MAX_POPUPS; i += 1) this.popups.push(new Popup());
     this.screenShake = 0;
+    this.speedScale = 1;   // raised during FEVER RUSH so every effect runs hot
   }
 
   reset() {
     for (const p of this.particles) p.active = false;
     for (const p of this.popups) p.active = false;
     this.screenShake = 0;
+    this.speedScale = 1;
   }
 
   /** A free particle slot, or a spent one reused. */
@@ -82,6 +84,28 @@ export class ParticleAndFX {
         (this.random.float() - 0.5) * 70, -40 - this.random.float() * 90,
         0.35 + this.random.float() * 0.35, 3 + this.random.float() * 4,
         hot ? '#ffd24a' : '#ff7a2a');
+    }
+  }
+
+  /** A burst of tiny four-point glints that twinkle as they rise: a dish just came together. */
+  glint(x, y, count = 10, tint = '#ffe9a6') {
+    for (let i = 0; i < count; i += 1) {
+      const p = this.freeParticle();
+      const a = this.random.float() * Math.PI * 2;
+      const r = 20 + this.random.float() * 46;
+      this.init(p, 'glint', x + Math.cos(a) * r * 0.5, y + Math.sin(a) * r * 0.3,
+        Math.cos(a) * 40, -30 - this.random.float() * 60,
+        0.5 + this.random.float() * 0.6, 5 + this.random.float() * 8, tint);
+    }
+  }
+
+  /** Aether motes drifting off the window sash: cool blue shards of the passing landscape. */
+  aether(x, y, count = 2) {
+    for (let i = 0; i < count; i += 1) {
+      const p = this.freeParticle();
+      this.init(p, 'glint', x + (this.random.float() - 0.5) * 20, y,
+        (this.random.float() - 0.5) * 10, -10 - this.random.float() * 24,
+        0.8 + this.random.float() * 0.8, 3 + this.random.float() * 5, '#9fd8ff');
     }
   }
 
@@ -149,16 +173,18 @@ export class ParticleAndFX {
 
   /** Advance every effect. */
   update(dt) {
+    const scale = this.speedScale;
     for (const p of this.particles) {
       if (!p.active) continue;
       p.life -= dt;
       if (p.life <= 0) { p.active = false; continue; }
-      p.x += p.vx * dt;
-      p.y += p.vy * dt;
+      p.x += p.vx * dt * scale;
+      p.y += p.vy * dt * scale;
       p.angle += p.spin * dt;
       if (p.kind === 'coin') p.vy += 420 * dt;
       else if (p.kind === 'slice') p.vy += 260 * dt;
       else if (p.kind === 'steam' || p.kind === 'smoke') p.vy += 6 * dt;
+      else if (p.kind === 'glint') p.vy -= 8 * dt;
       else p.vy += 120 * dt;
     }
     for (const p of this.popups) {
