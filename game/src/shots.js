@@ -131,6 +131,16 @@ export function stageShot(name, engine) {
   // their order bubbles, and steam rolling off every brass pan.
   play(engine, 40, (e) => e.stations.plate !== null && e.stations.plate.built.length >= 1 && e.progression.ordersServed >= 1);
   cookToGolden(engine);
+  // Put an ingredient on a second pan too, so two stations read as actively sizzling.
+  const ns = engine.stations.neededStation();
+  if (ns >= 0 && engine.stations.order !== null) {
+    const st = engine.stations.stations;
+    const other = st[(ns + 1) % st.length];
+    const deco = engine.stations.order.recipe.steps[0];
+    other.ingredient = { label: deco.label, tint: deco.tint, cook: deco.seconds * 0.6, seconds: deco.seconds, target: 0.6 };
+    other.state = 'cooking';
+    other.glow = 0.5;
+  }
   // Fill every empty booth so the cover shows a busy car, then spread the patience bars.
   for (const p of engine.customers.passengers) {
     if (p.state === 'open') engine.customers.seatPassenger(p.seat);
