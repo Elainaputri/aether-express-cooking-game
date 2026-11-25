@@ -1,0 +1,6 @@
+[
+  { "name": "1-cook.jpg", "query": "?shot=cook&seed=7" },
+  { "name": "2-ready.jpg", "query": "?shot=ready&seed=7" },
+  { "name": "3-fever.jpg", "query": "?shot=fever&seed=7" },
+  { "name": "4-shop.jpg", "query": "?shot=shop&seed=7" }
+]
