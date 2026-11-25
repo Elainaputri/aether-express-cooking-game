@@ -127,9 +127,23 @@ export function stageShot(name, engine) {
     play(engine, 90, (e) => e.progression.feverActive && e.progression.combo >= 3);
     return SCREEN_PLAY;
   }
-  // cook: a dish mid-assembly on the pass, the next step sizzling in the golden zone.
+  // cook: a bustling peak rush — a dish mid-assembly on the pass, several guests waiting with
+  // their order bubbles, and steam rolling off every brass pan.
   play(engine, 40, (e) => e.stations.plate !== null && e.stations.plate.built.length >= 1 && e.progression.ordersServed >= 1);
-  play(engine, 0.25);
   cookToGolden(engine);
+  // Fill every empty booth so the cover shows a busy car, then spread the patience bars.
+  for (const p of engine.customers.passengers) {
+    if (p.state === 'open') engine.customers.seatPassenger(p.seat);
+  }
+  let k = 0;
+  for (const p of engine.customers.passengers) {
+    if (p.state === 'waiting') { p.patience = [0.92, 0.7, 0.5, 0.34][k % 4]; k += 1; }
+  }
+  // Drifting steam over the pans so the kitchen reads as live and sizzling.
+  for (const s of engine.stations.stations) {
+    engine.fx.steam(s.panX, s.panY - 32, 4, 1.1);
+    engine.fx.steam(s.panX + 20, s.panY - 26, 3, 0.9);
+    engine.fx.fire(s.panX, s.panY + 8, 3);
+  }
   return SCREEN_PLAY;
 }

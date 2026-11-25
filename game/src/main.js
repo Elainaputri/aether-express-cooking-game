@@ -24,6 +24,7 @@ engine.renderer = renderer;
 
 /** Stage a scene, paint it twice, then flag it ready for the screenshot. */
 function runShot(name) {
+  window.__shotName = name;
   engine.reset(seed);
   stageShot(name, engine);
   let painted = 0;

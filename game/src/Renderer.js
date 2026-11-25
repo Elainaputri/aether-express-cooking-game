@@ -14,6 +14,8 @@
 import { FIELD, FONT, FONT_UI, PALETTE } from './config.js';
 import { UPGRADES } from './ProgressionManager.js';
 import { SCREEN_PLAY, SCREEN_SHOP, SCREEN_TITLE, SHIFT_SECONDS } from './GameEngine.js';
+import { ingredientArt, dishArt } from './DishIllustrations.js';
+import { drawTraveler, drawThoughtBubble } from './CharacterRenderer.js';
 
 const W = FIELD.width;
 const H = FIELD.height;
@@ -313,6 +315,39 @@ export class Renderer {
     this.drawOrderBoard(engine);
     this.drawPass(engine);
     this.drawClock(engine);
+    // Copper pans hung on the wall where the board, pass and clock leave room.
+    for (const px of [880, 1180]) {
+      ctx.strokeStyle = 'rgba(0,0,0,0.45)';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(px, WALL_TOP + 12);
+      ctx.lineTo(px, WALL_TOP + 30);
+      ctx.stroke();
+      ctx.lineWidth = 1;
+      const g = ctx.createRadialGradient(px - 6, WALL_TOP + 40, 2, px, WALL_TOP + 46, 22);
+      g.addColorStop(0, '#e8a45e');
+      g.addColorStop(1, '#8a4a22');
+      ctx.fillStyle = g;
+      ctx.beginPath();
+      ctx.arc(px, WALL_TOP + 44, 18, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = '#4a2412';
+      ctx.beginPath();
+      ctx.arc(px, WALL_TOP + 44, 13, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.strokeStyle = 'rgba(60,26,10,0.5)';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(px + 18, WALL_TOP + 42);
+      ctx.lineTo(px + 40, WALL_TOP + 34);
+      ctx.stroke();
+      ctx.lineWidth = 1;
+      ctx.fillStyle = 'rgba(255,240,200,0.5)';
+      ctx.beginPath();
+      ctx.ellipse(px - 6, WALL_TOP + 38, 6, 3, -0.5, 0, Math.PI * 2);
+      ctx.fill();
+      glow(ctx, px, WALL_TOP + 44, 4, 44, 'rgba(255,180,110,0.10)');
+    }
   }
 
   /** The chalk order ticket: the dish being cooked and its steps, ticked off as they are plated. */
@@ -380,14 +415,10 @@ export class Renderer {
     ctx.stroke();
     ctx.lineWidth = 1;
     if (plate !== null) {
-      // The ingredients plated so far, stacked with a little jitter; the dish grows step by step.
+      // The plated dish, built up step by step as ingredients land on it.
       const built = plate.built;
-      for (let i = 0; i < built.length; i += 1) {
-        const a = -0.4 + (i / Math.max(1, built.length)) * 0.8;
-        ctx.fillStyle = built[i].tint;
-        ctx.beginPath();
-        ctx.ellipse(cx + Math.sin(a) * 30, plateY - 8 - i * 4, 16, 8, a, 0, Math.PI * 2);
-        ctx.fill();
+      if (built.length > 0) {
+        dishArt(ctx, plate.recipe.name, cx, plateY - 6, 0.72, built.length);
       }
       if (built.length > 0) {
         this.text(plate.recipe.name, cx, plateY + 46, 14, PALETTE.brassLight, 'center', FONT_UI);
@@ -486,46 +517,9 @@ export class Renderer {
       ctx.fillRect(x - 96, 300, 192, 8);
       if (p.state === 'open') continue;
       const bob = Math.sin(engine.time * 2 + p.bob) * 2;
-      const tint = p.archetype.tint;
-      // Torso.
-      ctx.fillStyle = tint;
-      ctx.beginPath();
-      ctx.ellipse(x, 272 + bob, 34, 40, 0, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.fillStyle = 'rgba(0,0,0,0.18)';
-      ctx.beginPath();
-      ctx.ellipse(x, 280 + bob, 34, 30, 0, 0, Math.PI * 2);
-      ctx.fill();
-      // Head.
-      ctx.fillStyle = '#f0c9a0';
-      ctx.beginPath();
-      ctx.arc(x, 218 + bob, 22, 0, Math.PI * 2);
-      ctx.fill();
-      // Hair or cap by archetype.
-      ctx.fillStyle = p.archetype.id === 'vip' ? PALETTE.brassDark : p.archetype.id === 'critic' ? '#3a2a2a' : '#4a3526';
-      ctx.beginPath();
-      ctx.arc(x, 210 + bob, 22, Math.PI, Math.PI * 2);
-      ctx.fill();
-      if (p.archetype.id === 'vip') {
-        ctx.fillRect(x - 24, 206 + bob, 48, 5);
-        ctx.fillStyle = PALETTE.brass;
-        ctx.beginPath();
-        ctx.arc(x, 198 + bob, 5, 0, Math.PI * 2);
-        ctx.fill();
-      }
-      // Eyes and mouth, borrowed from the mood.
-      const angry = p.state === 'leaving';
-      ctx.fillStyle = '#2a1a0e';
-      ctx.beginPath();
-      ctx.arc(x - 7, 218 + bob, 2.4, 0, Math.PI * 2);
-      ctx.arc(x + 7, 218 + bob, 2.4, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.strokeStyle = angry ? PALETTE.danger : '#7a4a2a';
-      ctx.lineWidth = 2;
-      ctx.beginPath();
-      ctx.arc(x, angry ? 230 + bob : 224 + bob, 6, angry ? Math.PI : 0, angry ? Math.PI * 2 : Math.PI);
-      ctx.stroke();
-      ctx.lineWidth = 1;
+      // The illustrated traveller, then a circular order bubble with the dish icon and patience ring.
+      drawTraveler(ctx, p, x, bob, engine.time);
+      drawThoughtBubble(ctx, p, x, 172 + bob * 0.5, engine.time);
       this.drawOrderCard(engine, p, x, bob);
     }
   }
@@ -603,6 +597,21 @@ export class Renderer {
     ctx.fillRect(0, COUNTER_TOP + 4, W, 5);
     ctx.fillStyle = PALETTE.brassLight;
     ctx.fillRect(0, COUNTER_TOP + 4, W, 2);
+    // Wood-grain highlights running along the counter top.
+    ctx.strokeStyle = 'rgba(90,46,28,0.35)';
+    ctx.lineWidth = 1.5;
+    for (let i = 0; i < 3; i += 1) {
+      const gy = COUNTER_TOP - 22 + i * 6;
+      ctx.beginPath();
+      for (let x = 0; x <= W; x += 32) {
+        const yy = gy + Math.sin((x + i * 90) * 0.02) * 1.6;
+        if (x === 0) ctx.moveTo(x, yy); else ctx.lineTo(x, yy);
+      }
+      ctx.stroke();
+    }
+    ctx.lineWidth = 1;
+    ctx.fillStyle = 'rgba(255,240,200,0.5)';
+    ctx.fillRect(0, COUNTER_TOP - 26, W, 2);
 
     for (let i = 0; i < engine.stations.stations.length; i += 1) this.drawStation(engine, i);
   }
@@ -642,18 +651,11 @@ export class Renderer {
     else if (s.type === 'OVEN') this.drawOven(cx, cy, s);
     else this.drawBoard(cx, cy);
 
-    // The ingredient cooking now.
+    // The ingredient cooking now, drawn as its own little illustration.
     if (s.ingredient !== null) {
       const t = s.ingredient.cook / s.ingredient.seconds;
       const jitter = Math.sin(engine.time * 30 + index) * 1.5;
-      ctx.fillStyle = s.ingredient.tint;
-      ctx.beginPath();
-      ctx.ellipse(cx + jitter, cy - 12, 26, 14, 0, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.fillStyle = 'rgba(255,255,255,0.35)';
-      ctx.beginPath();
-      ctx.ellipse(cx + jitter - 6, cy - 16, 9, 4, 0, 0, Math.PI * 2);
-      ctx.fill();
+      ingredientArt(ctx, s.ingredient, cx + jitter, cy - 10, 0.62);
       this.drawDoneness(cx, cy - 46, t, engine.progression.goldenBonus);
     } else if (s.state === 'burnt') {
       ctx.fillStyle = 'rgba(20,10,5,0.4)';
